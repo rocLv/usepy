@@ -1,4 +1,5 @@
 playing
 =======
 
-Watch and Learn Python, for fun.
+Watch and Learn Python.
+Just for fun.
