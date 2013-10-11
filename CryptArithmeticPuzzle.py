@@ -22,7 +22,7 @@ import re
 # money = send + more
 
 
-def Calculate():
+def solve():
     m = 1
     t = 0
     start = time.clock()
@@ -54,6 +54,10 @@ def Calculate():
         # print "money :%s%s%s%s%s" %(m,o,n,e,y)
 
 
+def distinct(*args):
+    return len(set(args)) == len(args)
+
+
 def solve2():
     start = time.clock()
     letters = ('s', 'e', 'n', 'd', 'm', 'o', 'r', 'y')
@@ -71,31 +75,84 @@ def solve2():
             return send, more, money
 
 
-def distinct(*args):
-    return len(set(args)) == len(args)
+def solveAll(puzzle):
+    print '> Be patient for a while ...'
+    puzzle = puzzle.split(' ')
+    puzzle = ''.join(puzzle).upper()
+    # Find all the words in the expression, but keep the sequence.
+    words = re.findall('[A-Z]+', puzzle)
+    # Find all the sign in the expression, also keep the sequence.
+    sign = re.findall('\W', puzzle)
+    unique_char = set(''.join(words))
+    assert len(unique_char) <= 10, 'Too many letters'
+    # first letter of words
+    first_letters = {w[0] for w in words}
+    found_solution = False
+    for per in itertools.permutations(tuple(range(0, 10)), len(unique_char)):
+        dic_letter_value = dict(zip(unique_char, per))
+        # First letter of word can NOT be zero, filter them.
+        zero = False
+        for (k, v) in dic_letter_value.items():
+            if v == 0 and k in first_letters:
+                zero = True
+                break
+        if zero:
+            continue
+
+        # print 'trying ',dic_letter_value
+        # test for send+more=money
+        # dic_letter_value={'S':9,'E':5,'N':6,'D':7,'M':1,'O':0,'R':8,'E':5,'Y':2}   # test for send+more+money
+        # dic_letter_value={'I':1,'L':5,'O':8,'V':4,'E':2,'Y':9,'U':7,'D':6,'R':3,'A':0}  # test for i+love+you=dora
+        # Calculate every possible
+        dic_words_value = dict()
+        for w in words:
+            dic_words_value[w] = calculateSingleWordValue(w, dic_letter_value)
+        # Calculate value of two part of '='
+        left_exp, left_value = calculateExpressionValue(
+            words[0:-1], sign[0:-1], dic_words_value)
+        right_exp, right_value = calculateExpressionValue(
+            [words[-1]], [], dic_words_value)
+        # print left_exp,left_value
+        # print right_exp,right_value
+        # print dic_words_value
+        # assert left_value != right_value,'Got it ! %s %s' %
+        # (puzzle,dic_words_value)
+        if left_value == right_value:
+            found_solution = True
+            print "> Got one: %s %s" % (puzzle, dic_words_value)
+            continue
+    if not found_solution:
+        print '> NO FOUND! Bad luck! -_-|||'
+    else:
+        print '> Task complete !'
 
 
-def solve3(puzzle):
-    words = re.findall('[A-Z]+', puzzle.upper())
-    unique_characters = set(''.join(words))
-    assert len(unique_characters) <= 10, 'Too many letters'
-    first_letters = {word[0] for word in words}
-    print 'first_letters %s' % first_letters
-    n = len(first_letters)
-    sorted_characters = ''.join(first_letters) + \
-        ''.join(unique_characters - first_letters)
-    print sorted_characters
-    characters = tuple(ord(c) for c in sorted_characters)
-    print characters
-    digits = tuple(ord(c) for c in '0123456789')
-    zero = digits[0]
-    for guess in itertools.permutations(digits, len(characters)):
-        if zero not in guess[:n]:
-            equation = puzzle.translate(dict(zip(characters, guess)))
-            if eval(equation):
-                return equation
+def calculateExpressionValue(sortedWords, sortedSign, dic_words_value):
+    expression = ''
+    for i, w in enumerate(sortedWords):
+        expression += str(dic_words_value[w])
+        if i < len(sortedSign):
+            expression += sortedSign[i]
+    return expression, eval(expression)
 
 
-# print solve2()
-# Calculate()
-print solve3("I + LOVE + YOU == DORA")
+def calculateSingleWordValue(word, dic):
+    value = ''
+    for w in word:
+        value += str(dic[w])
+    return value
+
+#print solve2()
+#solve()
+#solveAll('aa+b=bb')
+#solveAll("I + love + YOU = dora")    #1+5842+987=6830
+solveAll('eat + that = apple')   # 819+9219=10038
+#solveAll('take + a + cake = kate')    #3961+9+2961=6931
+#solveAll("send +more= money")    #9567+1085=10652
+#solveAll('no + gun + no = hunt')  #87+908+87=1082
+#solveAll('base+ball=games')   #7843+7455=14938
+#solveAll('cross + roads = danger')    #96233+62513=158746
+#solveAll('k * aka = dyna')    # 7*575=4025  6*262=1572
+#solveAll('count - coin = snub')   #10652-1085=9567
+#solveAll('one + two + five = eight')  #621+846+9071=10538
+#solveall('woods + woods + woods = forest')   #71156+71156+71156 = 213468
