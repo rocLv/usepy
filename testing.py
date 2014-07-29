@@ -2,13 +2,7 @@
 import io
 import time
 import csv
-import MySQLdb
+import os
 
-f = open("d:/xxoo.csv",'rU')
-
-for line in f:
-    if not f :
-        break
-    #print line.decode('utf8')
-    print line.split(',')
-    time.sleep(0.1)
+for file in os.walk('d:/opensource/playing'):
+    print file[0]
