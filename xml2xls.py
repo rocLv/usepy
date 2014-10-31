@@ -1,4 +1,4 @@
-# -*- coding:utf-8 -*-
+# encoding:utf-8
 #!/usr/bin/python
 
 #from mmap import mmap, ACCESS_READ
@@ -8,10 +8,12 @@ import xlwt
 import xlutils.copy
 import xlutils.display
 import xlutils.view
-from xlrd.sheet import Cell
-from xlutils.display import cell_display
+#from xlrd.sheet import Cell
+#from xlutils.display import cell_display
 import xml.dom.minidom
 import os
+import codecs
+import MySQLdb
 
 
 def readxml(xmlfile):
@@ -22,13 +24,15 @@ def readxml(xmlfile):
     afns = root.getElementsByTagName('AFN')
     dicAll = {}
     for afn in afns:
-        dic = {}
-        dic['afn_NO'] = afn.getAttribute('NO')
-        dic['afn_desc'] = afn.getAttribute('desc')
+        afn_NO = afn.getAttribute('NO')
+        afn_desc = afn.getAttribute('desc')
         # print '\nafn=%s,%s' % (afn_NO, afn_desc)
         for fn in afn.getElementsByTagName('FN'):
             if not fn.hasAttribute('NO'):
                 continue
+            dic = {}
+            dic['afn_NO'] = afn_NO
+            dic['afn_desc'] = afn_desc
             dic['fn_NO'] = int(fn.getAttribute('NO'))
             dic['fn_desc'] = fn.getAttribute('desc')
             dic['fn_up'] = fn.getAttribute('decode_up_stream')
@@ -45,6 +49,8 @@ def readxml(xmlfile):
 
 
 def readxls(xlsfile):
+    if not os.path.isfile(xlsfile):
+        return []
     book = xlrd.open_workbook(xlsfile)
     sheet = book.sheet_by_name(u'Sheet1')
     print sheet.nrows
@@ -62,12 +68,62 @@ def readxls(xlsfile):
     return arr
 
 
+def readmysqldb(ip, dbname, user, pwd, tablename):
+    spliter = ' ; '
+    # define the charset
+    db = MySQLdb.connect(ip, user, pwd, dbname, charset='utf8')
+    cursor = db.cursor()
+    cursor.execute('select version()')
+    data = cursor.fetchone()
+    print 'MySQL connect succeed version', data
+    print 'fetch data ...table name: ', tablename
+
+    # fetch column's name
+    sql = "select column_name from information_schema.columns "
+    sql += "where table_name = '%s' and table_schema = '%s' " % (tablename,
+                                                                 dbname)
+    cursor.execute(sql)
+    columns = cursor.fetchall()
+    cols = [columns[i][0] for i in range(len(columns))]
+    print 'title: ', cols
+
+    cursor.execute('select * from %s' % tablename)
+    data = cursor.fetchall()
+
+    #file_handle = open(tablename + '.data.txt', 'w')
+    file_handle = codecs.open(tablename + '.data.txt', 'w', 'utf-8')
+    file_handle.writelines(spliter.join(cols))
+    for r in data:
+        line = []
+        for x in r:
+            if x != None:
+                if isinstance(x, long):
+                    line.append(str(x))
+                elif isinstance(x, unicode):
+                    line.append(unicode.decode(x, 'utf8'))
+                else:
+                    line.append(x)
+            else:
+                line.append('')
+        print line
+        file_handle.writelines(line)
+
+    file_handle.close()
+
+    db.close()
+    print ' Database close ...'
+
+
 def modify_xls(xml_dic, xls_arr, xlsfile1, xlsfile2):
     print 'fodify_xls functions ...'
-    print 'xml_dic length = %s, xls_arr length = %s', (len(xml_dic), len(xls_arr))
-    book1 = xlrd.open_workbook(xlsfile1)
-    workbook = xlutils.copy.copy(book1)
-    sheet = workbook.add_sheet(u'Sheet2', cell_overwrite_ok=True)
+    print 'xml_dic length = %s, xls_arr length = %s' % (len(xml_dic), len(xls_arr))
+
+    if os.path.isfile(xlsfile1):
+        book1 = xlrd.open_workbook(xlsfile1)
+        workbook = xlutils.copy.copy(book1)
+    else:
+        workbook = xlwt.Workbook()
+    sheet = workbook.add_sheet(u'Sheet1', cell_overwrite_ok=True)
 
     title = [
         'gw_dataitem_id',
@@ -107,7 +163,7 @@ def modify_xls(xml_dic, xls_arr, xlsfile1, xlsfile2):
         sheet.write(i, 12, r[12].value)
         # modify exist data-row base on xml-data, if there are existed,
         # then  xml-data -->> overwrite -->> xls-data
-        key = str(r[1].value).encode('hex')+str(r[2].value)
+        key = str(r[1].value).encode('hex') + str(r[2].value)
         dic = xml_dic.get(key)
         if dic is not None:
             xml_dic_existed_id.append(key)
@@ -120,37 +176,38 @@ def modify_xls(xml_dic, xls_arr, xlsfile1, xlsfile2):
     # filtter existed data-row in xml-file, and add new xml-data to xmls
     new = {}
     for (k, v) in xml_dic.items():
+        # print 'k= %s , v= %s' % (k,v)
         if k not in xml_dic_existed_id:
             new[k] = v
 
     # add new row to xls
     index = len(xls_arr)
     for (k, v) in new.items():
-        index = index+1
-        sheet.write(i, 0, index)
-        sheet.write(i, 1, v['afn_NO'])
-        sheet.write(i, 2, v['fn_NO'])
-        sheet.write(i, 3, v['fn_desc'])  # f_name
-        sheet.write(i, 4, 0)  # data_len
-        sheet.write(i, 5, '')  # unit
-        sheet.write(i, 6, v['fn_di'])  # dataitem_map
-        sheet.write(i, 7, v['fn_up'])  # decode_upstream
-        sheet.write(i, 8, v['fn_down'])  # decode_downstream
-        sheet.write(i, 9, v['fn_datatype'])  # datatype
-        sheet.write(i, 10, '')  # remark
-        sheet.write(i, 11, 1)  # isshow
-        sheet.write(i, 12, 0)  # isparent
+        index = index + 1
+        sheet.write(index, 0, index)
+        sheet.write(index, 1, v['afn_NO'])
+        sheet.write(index, 2, v['fn_NO'])
+        sheet.write(index, 3, v['fn_desc'])  # f_name
+        sheet.write(index, 4, 0)  # data_len
+        sheet.write(index, 5, '')  # unit
+        sheet.write(index, 6, v['fn_di'])  # dataitem_map
+        sheet.write(index, 7, v['fn_up'])  # decode_upstream
+        sheet.write(index, 8, v['fn_down'])  # decode_downstream
+        sheet.write(index, 9, v['fn_datatype'])  # datatype
+        sheet.write(index, 10, '')  # remark
+        sheet.write(index, 11, 1)  # isshow
+        sheet.write(index, 12, 0)  # isparent
 
     # save
     workbook.save(xlsfile2)
-    print ' save to xlsfile %s', xlsfile2
+    print 'Done! save to xlsfile ', xlsfile2
 
 
-xmlfile = r'''C:\workspace\pro\FEP_V1\com.techenframework.protocol.gw\src\com\techenframework\protocol\gw\frame\afnfn-method.xml'''
-xlsfile = u'C:\工作\kernel_gw_dataitem.xls'
-xlsfile2 = u'C:\工作\kernel_gw_dataitem2.xls'
+# xmlfile =
+xlsfile = 'd:\\AMI\\kernel_gw_dataitem.xls'
+xlsfile2 = r'd:\ami\kernel_gw_dataitem2.xls'
+xlsfile3 = r'd:\ami\kernel_gw_dataitem3.xmls'
 
-
-xml_dic = readxml(xmlfile)
-xls_arr = readxls(xlsfile)
-modify_xls(xml_dic, xls_arr, xlsfile, xlsfile2)
+#xml_dic = readxml(xmlfile)
+#xls_arr = readxls(xlsfile)
+#modify_xls(xml_dic, xls_arr, xlsfile, xlsfile3)
