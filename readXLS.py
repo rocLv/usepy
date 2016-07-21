@@ -6,8 +6,7 @@ from xlrd import open_workbook
 from xml.dom.minidom import parse
 import xml.dom.minidom
 
-xmlfile = '''C:\\workspace\pro\FEP_V1\com.techenframework.protocol.gw\src\com\\
-    techenframework\protocol\gw\\frame\\afnfn-method.xml'''
+xmlfile = '''C:\\afnfn-method.xml'''
 xlsfile =''
 
 tree = xml.dom.minidom.

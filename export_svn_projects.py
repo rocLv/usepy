@@ -29,7 +29,7 @@ def exp(srcpath,dstpath):
 
 
 source = 'd:/allprojects/drink/doc'
-destination = 'd:/lu/desktop/svn'
+destination = 'd:/desktop/svn'
 
 source = os.path.normcase(source)
 destination = os.path.normcase(destination)
